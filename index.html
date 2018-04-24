@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html manifest="cache.manifest">
+<head>
+    <meta charset="utf-8" />
+    <title>Silent Disco</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name=viewport content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />    
+
+    <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+    <link rel="icon" href="favicon.png" type="image/x-icon">
+    <style>
+        #controls {
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 50px;
+            width: 150px;
+        }
+
+        #countdown {
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 50px;
+            display: block;
+            text-align: center;
+        }
+
+        #offset {
+            width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 50px;
+            display: block;
+            text-align: center;
+        }
+
+        #offset > span {
+            color: rgba(0,0,0,.5); 
+            font-size: 80px; 
+            text-align: left; 
+            width: 100px; 
+            cursor: pointer;
+        }
+
+        button {
+            width: 200px;
+            height: 50px;
+            font-size: 24px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 50px;
+        }
+
+    </style>
+    <script>
+            //query string parser
+            window.query_string = {};
+            var params = window.location.search.substring(1);
+            if (params === "" && window.location.hash.indexOf('?') > -1) {
+                params = window.location.hash.substring(window.location.hash.indexOf('?') + 1);
+            }
+            var vars = params.split("&");
+            vars.forEach(function(param){
+                var pair = param.split("=");
+                window.query_string[pair[0]] = pair[1];
+            });
+
+        window.startTime = window.query_string.start || new Date().toISOString();
+
+        window.currentTrack = 1;
+
+        window.countdown = ((Date.parse(window.startTime).valueOf() - new Date().valueOf()) / 1000);
+
+        window.canStart = false;
+        window.offset = 0;
+        window.playedCount = 0;
+
+        function updateCountdown() {
+            var temp = window.countdown = ((Date.parse(window.startTime).valueOf() - new Date().valueOf()) / 1000) + window.offset;
+
+            temp = Math.abs(temp);
+            var hours = Math.floor(temp / (60 * 60));
+            temp -= (hours * 3600);
+            var mins =  Math.floor(temp / 60);
+            temp -= (mins * 60);
+            var secs = Math.floor(temp);
+            var cd = document.getElementById('countdown');
+            cd.innerHTML = hours.toString().padStart(2,'0') + ':' + mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+            if(countdown < 0) {
+                cd.style.color = 'green';
+                var myAudio = document.getElementById('my-audio');
+                if (myAudio.duration > 0 && myAudio.paused && window.canStart) {
+                    myAudio.play();
+                    waiting.style.display = "none";
+                    pause.style.display = "block";
+                }
+            }
+        }
+
+        window.nextTrack = function() {
+
+            var myAudio = document.getElementById('my-audio');
+            window.playedCount += myAudio.duration;
+
+            while(window.currentTrack < 4) {
+                window.currentTrack++;
+                window.countdown = (Date.parse(window.startTime).valueOf() - new Date().valueOf()) / 1000;
+                myAudio.pause();
+                myAudio.src = currentTrack + '.mp3';
+                myAudio.load();
+                if(window.countdown < 0) {
+                    if(myAudio.duration < (Math.abs(countdown) - window.playedCount)) {
+                        return nextTrack();
+                    }
+                    myAudio.currentTime = (Math.abs(countdown) - window.playedCount);
+                }
+
+                myAudio.play();
+                break;
+            }
+        }
+
+        window.onload = function() {
+
+            var myAudio = document.getElementById('my-audio');
+            var play = document.getElementById('play');
+            var pause = document.getElementById('pause');
+            var loading = document.getElementById('loading');
+
+            if(window.countdown < 0) {
+                play.innerHTML = "join";
+            }
+           
+            function displayControls() {
+               loading.style.display = "none";
+               play.style.display = "block";
+            }
+
+            function start() {
+                play.style.display = "none";
+                waiting.style.display = "none";
+                pause.style.display = "block";
+
+                if(countdown < 0) {
+                    if(myAudio.duration < (Math.abs(countdown) - window.playedCount)) {
+                        return nextTrack();
+                    }
+                    myAudio.currentTime = (Math.abs(countdown) - window.playedCount);
+                }
+                myAudio.play();
+                if(countdown > 0) {
+                    waiting.style.display = "block";
+                    pause.style.display = "none";
+                    myAudio.pause();
+                }
+            }
+
+            if(myAudio.paused) {
+               displayControls();
+            } else {
+               myAudio.addEventListener('canplay', function() {
+                  displayControls();
+               });
+            }
+
+            myAudio.addEventListener('ended',function() {
+                nextTrack();
+            });
+             
+            play.addEventListener('click', function() {
+                window.canStart = true;
+                start();
+            });
+             
+            pause.addEventListener('click', function() {
+               myAudio.pause();
+               pause.style.display = "none";
+               play.style.display = "block";
+               window.canStart = false;
+               play.innerHTML = "play";
+            });
+
+            document.getElementById('offsetForward').onclick = function() {
+                if(window.countdown >= 0) {
+                    window.offset -= 2;
+                } else {
+                    window.offset -= 2;
+                    myAudio.currentTime += 2;
+                }
+            }
+
+            document.getElementById('offsetBack').onclick = function() {
+                if(window.countdown >= 0) {
+                    window.offset += 2;
+                } else {
+                    window.offset += 2;
+                    myAudio.currentTime -= 2;                    
+                }
+            }
+             
+            window.cdTimer = setInterval(updateCountdown, 1000);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('load complete');
+            document.getElementById('loadingContent').style.display = 'none';
+        }, false);
+
+    </script>
+</head>
+<body> 
+    <audio id="my-audio" preload>
+        <source src="1.mp3" type="audio/mpeg">
+    </audio>
+
+    <span id="countdown" style="font-size: 80px;"></span>
+    <button id="play" style="display:none">cache for offline</button>
+    <button id="pause" style="display:none" >pause</button>
+
+    <div id="controls">
+        <span id="loading">loading</span>
+        <span id="waiting" style="display: none">count down to disco...</span>
+        <span id="loadingContent">caching songs...</span>
+    </div>
+
+    <div id="offset">
+        <span id="offsetBack" style="float: left;"><</span>
+        <span id="offsetForward" style="text-align: right; width: 100px; float: right;">></span>
+    </div>
+</body>
+</html>
